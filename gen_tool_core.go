@@ -18,7 +18,7 @@ import (
 
 type GenTool interface {
 	GetWorkMode() string
-	GenMessage(record []string) (interface{} , error)
+	GenMessage(index int , record []string) (interface{} , error)
 }
 
 type GenToolCore struct {
@@ -83,10 +83,15 @@ func (g *GenToolCore)Run()  {
 					break
 				}
 
-				msg ,err := g.tool.GenMessage(record)
+				msg ,err := g.tool.GenMessage(index , record)
 				if err == nil {
 					body , err := json.Marshal(msg)
 					if index == 0 {
+						fmt.Printf("mq : %s\n" , g.config.Amqp)
+						fmt.Printf("     %s , %s\n" , g.config.Exchange , g.config.ExchangeType)
+						fmt.Printf("source : %s\n", g.src)
+						fmt.Printf("record : %v" , record)
+
 
 						var pretty bytes.Buffer
 						err = json.Indent(&pretty, body, "", "    ")
@@ -96,21 +101,15 @@ func (g *GenToolCore)Run()  {
 							log.Println(err)
 						}
 
-
 						reader := bufio.NewReader(os.Stdin)
 						fmt.Print("continue (Y/N): ")
 						YN, _ := reader.ReadString('\n')
-						fmt.Println(YN)
-
-						cmp := strings.Compare(YN[0:1] , "Y")
-
-						if cmp != 0{
+						if strings.Compare(YN[0:1] , "Y") != 0{
 							log.Println("Stop Sending")
 							break
 						}
 						log.Println("Start Sending")
 					}
-
 
 					if err == nil {
 						if err = g.channel.Publish(
@@ -150,18 +149,14 @@ func (g *GenToolCore)connectMq() error{
 	if err != nil {
 		return err
 	}
-
 	g.conn = connection
 
-	log.Printf("got Connection, getting Channel")
 	channel, err := connection.Channel()
 	if err != nil {
 		return err
 	}
-
 	g.channel = channel
 
-	log.Printf("got Channel, declaring %q Exchange (%q)", g.config.ExchangeType, g.config.Exchange)
 	err = channel.ExchangeDeclare(
 		g.config.Exchange,     // name
 		g.config.ExchangeType, // type
@@ -177,8 +172,6 @@ func (g *GenToolCore)connectMq() error{
 
 	// Reliable publisher confirms require confirm.select support from the
 	// connection.
-
-	log.Printf("enabling publishing confirms.")
 	if err := channel.Confirm(false); err != nil {
 		if err != nil {
 			return  err
@@ -203,8 +196,6 @@ func (g *GenToolCore)terminate(){
 
 
 func confirmOne(confirms <-chan amqp.Confirmation) {
-	log.Printf("waiting for confirmation of one publishing")
-
 	if confirmed := <-confirms; confirmed.Ack {
 		log.Printf("confirmed delivery with delivery tag: %d", confirmed.DeliveryTag)
 	} else {
