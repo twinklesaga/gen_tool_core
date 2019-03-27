@@ -83,7 +83,21 @@ func (g *GenToolCore)Run()  {
 					break
 				}
 
+				if len(record) < g.config.RecordLen {
+					log.Printf("Record Error : len(%d) %v\n" , g.config.RecordLen, record)
+					break
+				}
+				if record[0] != g.config.WorkMode {
+					log.Printf("WorkMode Error : %s != %s\n" , record[0] , g.config.WorkMode)
+					break
+				}
+				if strings.HasPrefix(record[0] , "!") {
+					log.Printf("Skip %v \n" , record)
+					continue
+				}
+
 				msg ,err := g.tool.GenMessage(index , record)
+
 				if err == nil {
 					body , err := json.Marshal(msg)
 					if index == 0 {
@@ -132,8 +146,9 @@ func (g *GenToolCore)Run()  {
 						confirmOne(g.confirms)
 					}
 					index++
+				} else {
+					log.Println(err , index , recover())
 				}
-
 			}
 		}
 

@@ -8,4 +8,5 @@ type GenToolConfig struct {
 	WorkMode     string `json:"workMode"`
 
 	Priority 	 uint8 `json:"priority"`
+	RecordLen	 int 	`json:"recordLen"`
 }
