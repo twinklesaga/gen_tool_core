@@ -91,7 +91,7 @@ func (g *GenToolCore)Run()  {
 						var pretty bytes.Buffer
 						err = json.Indent(&pretty, body, "", "    ")
 						if err == nil {
-							log.Println(string(pretty.Bytes()))
+							fmt.Println(string(pretty.Bytes()))
 						}else{
 							log.Println(err)
 						}
@@ -101,7 +101,10 @@ func (g *GenToolCore)Run()  {
 						fmt.Print("continue (Y/N): ")
 						YN, _ := reader.ReadString('\n')
 						fmt.Println(YN)
-						if strings.Compare(YN , "Y") != 0{
+
+						cmp := strings.Compare(YN[0:1] , "Y")
+
+						if cmp != 0{
 							log.Println("Stop Sending")
 							break
 						}
