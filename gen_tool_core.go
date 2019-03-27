@@ -2,6 +2,7 @@ package gen_tool_core
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -85,14 +86,22 @@ func (g *GenToolCore)Run()  {
 				if err == nil {
 					body , err := json.Marshal(msg)
 					if index == 0 {
-						log.Println(string(body))
+
+						var prettyJSON bytes.Buffer
+						err = json.Indent(&prettyJSON, body, "", "\t")
+						if err != nil {
+							log.Println(prettyJSON.String())
+						}
+
 						reader := bufio.NewReader(os.Stdin)
 						fmt.Print("continue (Y/N): ")
 						YN, _ := reader.ReadString('\n')
+						fmt.Println(YN)
 						if YN != "Y" {
 							break
 						}
 					}
+
 
 					if err == nil {
 						if err = g.channel.Publish(
