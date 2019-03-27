@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 )
 
 type GenTool interface {
@@ -88,7 +89,7 @@ func (g *GenToolCore)Run()  {
 					if index == 0 {
 
 						var pretty bytes.Buffer
-						err = json.Indent(&pretty, body, "", "\t")
+						err = json.Indent(&pretty, body, "", "    ")
 						if err == nil {
 							log.Println(string(pretty.Bytes()))
 						}else{
@@ -100,7 +101,8 @@ func (g *GenToolCore)Run()  {
 						fmt.Print("continue (Y/N): ")
 						YN, _ := reader.ReadString('\n')
 						fmt.Println(YN)
-						if YN != "Y" {
+						if strings.Compare(YN , "Y") != 0{
+							log.Println("Stop Sending")
 							break
 						}
 						log.Println("Start Sending")
