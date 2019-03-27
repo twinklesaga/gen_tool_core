@@ -90,8 +90,11 @@ func (g *GenToolCore)Run()  {
 						var prettyJSON bytes.Buffer
 						err = json.Indent(&prettyJSON, body, "", "\t")
 						if err != nil {
-							log.Println(prettyJSON.String())
+							log.Println(string(prettyJSON.Bytes()))
+						}else{
+							log.Println(err)
 						}
+
 
 						reader := bufio.NewReader(os.Stdin)
 						fmt.Print("continue (Y/N): ")
