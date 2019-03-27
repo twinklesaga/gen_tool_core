@@ -87,10 +87,10 @@ func (g *GenToolCore)Run()  {
 					body , err := json.Marshal(msg)
 					if index == 0 {
 
-						var prettyJSON bytes.Buffer
-						err = json.Indent(&prettyJSON, body, "", "\t")
-						if err != nil {
-							log.Println(string(prettyJSON.Bytes()))
+						var pretty bytes.Buffer
+						err = json.Indent(&pretty, body, "", "\t")
+						if err == nil {
+							log.Println(string(pretty.Bytes()))
 						}else{
 							log.Println(err)
 						}
@@ -103,6 +103,7 @@ func (g *GenToolCore)Run()  {
 						if YN != "Y" {
 							break
 						}
+						log.Println("Start Sending")
 					}
 
 
