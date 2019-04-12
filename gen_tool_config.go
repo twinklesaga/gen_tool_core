@@ -9,4 +9,5 @@ type GenToolConfig struct {
 
 	Priority 	 uint8 `json:"priority"`
 	RecordLen	 int 	`json:"recordLen"`
+	Delim 		 string `json:"delim"`
 }

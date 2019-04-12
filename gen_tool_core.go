@@ -3,13 +3,11 @@ package gen_tool_core
 import (
 	"bufio"
 	"bytes"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/streadway/amqp"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -75,15 +73,20 @@ func (g *GenToolCore)Run()  {
 		if err == nil {
 			defer f.Close()
 
-			r := csv.NewReader(bufio.NewReader(f))
-			index := 0
-			for {
-				record, err := r.Read()
-				if err == io.EOF {
-					break
-				}
+			delim := ","
+			if len(g.config.Delim) > 0 {
+				delim = g.config.Delim
+			}
 
-				if len(record) < g.config.RecordLen {
+			scanner := bufio.NewScanner(f)
+			index := 0
+			for scanner.Scan(){
+
+				line := scanner.Text()
+
+				record := strings.Split(line , delim)
+
+				if len(record) <= g.config.RecordLen {
 					log.Printf("Record Error : len(%d) %v\n" , g.config.RecordLen, record)
 					break
 				}
