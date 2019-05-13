@@ -103,6 +103,10 @@ func (g *GenToolCore)Run()  {
 
 				if err == nil {
 					body , err := json.Marshal(msg)
+
+					if strings.Contains(string(body) , "\u0026") {
+						body = []byte(strings.Replace(string(body), "\u0026" , "&" , -1))
+					}
 					if index == 0 {
 						fmt.Printf("mq : %s\n" , g.config.Amqp)
 						fmt.Printf("     %s , %s\n" , g.config.Exchange , g.config.ExchangeType)
