@@ -3,11 +3,13 @@ package gen_tool_core
 import (
 	"bufio"
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/streadway/amqp"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -72,97 +74,117 @@ func (g *GenToolCore)Run()  {
 		f, err := os.Open(g.src)
 		if err == nil {
 			defer f.Close()
-
 			delim := ","
 			if len(g.config.Delim) > 0 {
 				delim = g.config.Delim
 			}
-
-			scanner := bufio.NewScanner(f)
 			index := 0
-			for scanner.Scan(){
-
-				line := scanner.Text()
-
-				record := strings.Split(line , delim)
-
-				if len(record) <= g.config.RecordLen {
-					log.Printf("Record Error : len(%d) %v\n" , g.config.RecordLen, record)
-					break
-				}
-				if record[0] != g.config.WorkMode {
-					log.Printf("WorkMode Error : %s != %s\n" , record[0] , g.config.WorkMode)
-					break
-				}
-				if strings.HasPrefix(record[0] , "!") {
-					log.Printf("Skip %v \n" , record)
-					continue
-				}
-
-				msg ,err := g.tool.GenMessage(index , record)
-
-				if err == nil {
-					body , err := json.Marshal(msg)
-
-					if strings.Contains(string(body) , "\u0026") {
-						body = []byte(strings.Replace(string(body), "\u0026" , "&" , -1))
+			if delim == "," {
+				fmt.Println("use csv reader")
+				r := csv.NewReader(bufio.NewReader(f))
+				for {
+					record, err := r.Read()
+					if err == io.EOF {
+						break
 					}
-					if index == 0 {
-						fmt.Printf("mq : %s\n" , g.config.Amqp)
-						fmt.Printf("     %s , %s\n" , g.config.Exchange , g.config.ExchangeType)
-						fmt.Printf("source : %s\n", g.src)
-						fmt.Printf("record : %v" , record)
-
-
-						var pretty bytes.Buffer
-						err = json.Indent(&pretty, body, "", "    ")
-						if err == nil {
-							fmt.Println(string(pretty.Bytes()))
-						}else{
-							log.Println(err)
-						}
-
-						reader := bufio.NewReader(os.Stdin)
-						fmt.Print("continue (Y/N): ")
-						YN, _ := reader.ReadString('\n')
-						if strings.Compare(YN[0:1] , "Y") != 0{
-							log.Println("Stop Sending")
-							break
-						}
-						log.Println("Start Sending")
-					}
-
-					if err == nil {
-						if err = g.channel.Publish(
-							g.config.Exchange, // publish to an exchange
-							"",           // routing to 0 or more queues
-							false,        // mandatory
-							false,        // immediate
-							amqp.Publishing{
-								Headers:         amqp.Table{},
-								ContentType:     "application/json",
-								ContentEncoding: "",
-								Body:            []byte(body),
-								DeliveryMode:    amqp.Persistent, // 1=non-persistent, 2=persistent
-								Priority:        g.config.Priority,               // 0-9
-								// a bunch of application/implementation-specific fields
-							},
-						); err != nil {
-							break
-						}
-						confirmOne(g.confirms)
+					if !g.ProcessMessage(record , index) {
+						break
 					}
 					index++
-				} else {
-					log.Println(err , index , recover())
+				}
+			}else {
+				fmt.Println("use scanner")
+				scanner := bufio.NewScanner(f)
+
+				for scanner.Scan() {
+
+					line := scanner.Text()
+
+					record := strings.Split(line, delim)
+
+					if len(record) <= g.config.RecordLen {
+						log.Printf("Record Error : len(%d) %v\n", g.config.RecordLen, record)
+						break
+					}
+					if record[0] != g.config.WorkMode {
+						log.Printf("WorkMode Error : %s != %s\n", record[0], g.config.WorkMode)
+						break
+					}
+					if strings.HasPrefix(record[0], "!") {
+						log.Printf("Skip %v \n", record)
+						continue
+					}
+
+					if !g.ProcessMessage(record , index) {
+						break
+					}
 				}
 			}
 		}
-
 	}else {
 		log.Println(err)
 	}
 	g.terminate()
+}
+
+func (g *GenToolCore)ProcessMessage(record []string , index int ) bool {
+	msg, err := g.tool.GenMessage(index, record)
+
+	if err == nil {
+		body, err := json.Marshal(msg)
+
+		if strings.Contains(string(body), "\u0026") {
+			body = []byte(strings.Replace(string(body), "\u0026", "&", -1))
+		}
+		if index == 0 {
+			fmt.Printf("mq : %s\n", g.config.Amqp)
+			fmt.Printf("     %s , %s\n", g.config.Exchange, g.config.ExchangeType)
+			fmt.Printf("source : %s\n", g.src)
+			fmt.Printf("record : %v", record)
+
+			var pretty bytes.Buffer
+			err = json.Indent(&pretty, body, "", "    ")
+			if err == nil {
+				fmt.Println(string(pretty.Bytes()))
+			} else {
+				log.Println(err)
+			}
+
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("continue (Y/N): ")
+			YN, _ := reader.ReadString('\n')
+			if strings.Compare(YN[0:1], "Y") != 0 {
+				log.Println("Stop Sending")
+				return false
+			}
+			log.Println("Start Sending")
+		}
+
+		if err == nil {
+			if err = g.channel.Publish(
+				g.config.Exchange, // publish to an exchange
+				"",                // routing to 0 or more queues
+				false,             // mandatory
+				false,             // immediate
+				amqp.Publishing{
+					Headers:         amqp.Table{},
+					ContentType:     "application/json",
+					ContentEncoding: "",
+					Body:            []byte(body),
+					DeliveryMode:    amqp.Persistent,   // 1=non-persistent, 2=persistent
+					Priority:        g.config.Priority, // 0-9
+					// a bunch of application/implementation-specific fields
+				},
+			); err != nil {
+				return false
+			}
+			confirmOne(g.confirms)
+		}
+		index++
+	} else {
+		log.Println(err, index, recover())
+	}
+	return true
 }
 
 
